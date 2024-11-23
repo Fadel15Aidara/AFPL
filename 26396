@@ -1,0 +1,89 @@
+#include <stdio.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <string.h>
+#include <stdlib.h>
+
+void split_file(const char* src_filename, long part_size)
+{
+    int fdSrc = open(src_filename, O_RDONLY);
+    if (fdSrc==-1)
+    {
+        perror("Erreur d'ouverture du fichier source");
+        return;
+    }
+    struct stat stFichierSrc;
+    if(fstat(fdSrc, &stFichierSrc)==-1)
+    {
+        perror("Erreur de récupération des informations du fichier");
+        close(fdSrc);
+        return;
+    }
+    long total_size = stFichierSrc.st_size;
+    int num_parts = (total_size + part_size - 1) / part_size;
+    printf("Taille totale: %ld octets\n", total_size);
+    printf("Nombre de parties: %d\n", num_parts);
+    char buff;
+    char output_filename[256];
+    long bytes_read = 0;
+    for (int part = 1; part <= num_parts; part++)
+    {
+        
+        snprintf(output_filename, sizeof(output_filename), "%s.%03d", src_filename, part);
+        int fdDst = open(output_filename, O_WRONLY | O_CREAT | O_TRUNC, stFichierSrc.st_mode);
+        if (fdDst == -1) {
+            perror("Erreur de création du fichier destination");
+            close(fdSrc);
+            return;
+        }
+
+        printf("Création de la partie %d: %s\n", part, output_filename);
+        long bytes_for_this_part = 0;
+        while (bytes_for_this_part < part_size && bytes_read < total_size)
+        {
+            if (read(fdSrc, &buff, sizeof(char)) > 0)
+            {
+                if (write(fdDst, &buff, sizeof(char)) == -1)
+                {
+                    perror("Erreur d'écriture");
+                    close(fdSrc);
+                    close(fdDst);
+                    return;
+                }
+                bytes_read++;
+                bytes_for_this_part++;
+                if (bytes_read % 1024 == 0)
+                {
+                    printf("\rProgression: %.2f%%", (float)bytes_read * 100 / total_size);
+                    fflush(stdout);
+                }
+            }
+        }
+        
+        close(fdDst);
+    }
+    
+    close(fdSrc);
+    printf("\nDécoupage terminé avec succès!\n");
+}
+
+int main(int argc, char *argv[])
+{
+    if (argc != 3)
+    {
+        printf("Erreur: nombre d'arguments insuffisant\n");
+        printf("Usage: %s fichier taille_partie\n", argv[0]);
+        return 1;
+    }
+    long part_size = atol(argv[2]);
+    if (part_size <= 0)
+    {
+        printf("Erreur: la taille doit être positive\n");
+        return 1;
+    }
+
+    split_file(argv[1], part_size);
+    return 0;
+}

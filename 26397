@@ -1,0 +1,136 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+#include <semaphore.h>
+#include <unistd.h>
+
+#define N 10
+#define MAX_VALUES 1000
+
+int counter = 0;
+int values[MAX_VALUES];
+int value_index = 0;
+sem_t sem1, sem2;
+
+// Structure pour stocker les données à tracer
+struct PlotData
+{
+    int timestamps[MAX_VALUES];
+    int values[MAX_VALUES];
+    int count;
+};
+
+struct PlotData plotData = {0};
+
+void* increment_thread(void* arg) {
+    while (1) {
+        sem_wait(&sem1); 
+        if (counter >= N)
+        {
+            sem_post(&sem2);
+            break;
+        }
+        
+        counter++;
+        printf("Thread 1: %d\n", counter);
+        
+        plotData.timestamps[plotData.count] = plotData.count;
+        plotData.values[plotData.count] = counter;
+        plotData.count++;
+        
+        usleep(100000); // Pause
+        if (counter >= N)
+        {
+            sem_post(&sem2); 
+            break;
+        } 
+        else 
+        {
+            sem_post(&sem1); 
+        }
+    }
+    return NULL;
+}
+
+void* decrement_thread(void* arg) {
+    while (1) {
+        sem_wait(&sem2); 
+        
+        if (counter <= -N)
+        {
+            sem_post(&sem1); 
+            break;
+        }
+        
+        counter--;
+        printf("Thread 2: %d\n", counter);
+    
+        plotData.timestamps[plotData.count] = plotData.count;
+        plotData.values[plotData.count] = counter;
+        plotData.count++;
+        
+        usleep(100000); 
+        
+        if (counter <= -N)
+        {
+            sem_post(&sem1);
+            break;
+        }
+         else 
+        {
+            sem_post(&sem2);
+        }
+    }
+    return NULL;
+}
+
+void generate_plot_data()
+{
+    FILE *fp = fopen("plot_data.txt", "w");
+    if (fp == NULL)
+    {
+        printf("Erreur lors de l'ouverture du fichier\n");
+        return;
+    }
+    
+    for (int i = 0; i < plotData.count; i++)
+    {
+        fprintf(fp, "%d %d\n", plotData.timestamps[i], plotData.values[i]);
+    }
+    fclose(fp);
+}
+
+void generate_plot_script()
+{
+    FILE *fp = fopen("plot_script.gnu", "w");
+    if (fp == NULL)
+    {
+        printf("Erreur lors de l'ouverture du fichier script\n");
+        return;
+    }
+    
+    fprintf(fp, "set title 'Evolution de la valeur du compteur'\n");
+    fprintf(fp, "set xlabel 'Étapes'\n");
+    fprintf(fp, "set ylabel 'Valeur'\n");
+    fprintf(fp, "set grid\n");
+    fprintf(fp, "plot 'plot_data.txt' with linespoints title 'Valeur du compteur'\n");
+    fclose(fp);
+}
+
+int main()
+{
+    pthread_t thread1, thread2;
+    sem_init(&sem1, 0, 1); 
+    sem_init(&sem2, 0, 0); 
+    
+    pthread_create(&thread1, NULL, increment_thread, NULL);
+    pthread_create(&thread2, NULL, decrement_thread, NULL);
+    
+    pthread_join(thread1, NULL);
+    pthread_join(thread2, NULL);
+    
+    generate_plot_data();
+    generate_plot_script();
+    
+    return 0;
+}

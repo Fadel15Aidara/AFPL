@@ -1,0 +1,112 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <math.h>
+
+
+double f(int n)
+{
+    return pow(2, n);
+}
+
+double g(int n)
+{
+    return 2 * n;
+}
+
+int main(int argc, char *argv[])
+{
+    if (argc < 3)
+    {
+        printf("Erreur: nombre d'arguments insuffisant\n");
+        printf("Instructions d'utilisation:\n");
+        printf("---------------------------\n");
+        printf("1. Calculer 2^n:        ./prog -f n\n");
+        printf("2. Calculer 2*n:        ./prog -g n\n");
+        printf("3. Calculer f(g(n)):    ./prog -g n -f\n");
+        printf("4. Calculer g(f(n)):    ./prog -f n -g\n\n");
+        printf("Exemples:\n");
+        printf("  ./prog -f 3      Calcule 2^3\n");
+        printf("  ./prog -g 3      Calcule 2*3\n");
+        printf("  ./prog -f 3 -g   Calcule g(f(3)) = 2*(2^3)\n");
+        printf("  ./prog -g 3 -f   Calcule f(g(3)) = 2^(2*3)\n");
+        return 1;
+    }
+
+    int opt;
+    int n=0;
+    double resultat=0;
+    int f_flag=0,g_flag=0;
+    int ordre_f= 0,ordre_g=0;
+    int compteur=0;
+    
+    optind=1;  
+    while ((opt=getopt(argc,argv,"f:g:"))!=-1)
+    {
+        compteur++;
+        switch (opt)
+        {
+            case 'f':
+                f_flag=1;
+                ordre_f=compteur;
+                if (optarg!=NULL)
+                {
+                    n=atoi(optarg);
+                }
+                break;
+            case 'g':
+                g_flag=1;
+                ordre_g=compteur;
+                if (optarg!=NULL)
+                {
+                    n=atoi(optarg);
+                }
+                break;
+            case '?':
+                printf("Option inconnue: %c\n", optopt);
+                afficher_instructions();
+                return 1;
+        }
+    }
+
+    if (f_flag&&!g_flag)
+    {
+        resultat=f(n);
+        printf("f(%d) = %.0f\n", n, resultat);
+    }
+    else if (g_flag&&!f_flag)
+    {
+        resultat = g(n);
+        printf("g(%d) = %.0f\n", n, resultat);
+    }
+    else if (f_flag && g_flag)
+    {
+        if (ordre_f < ordre_g)
+        {
+            resultat = g(f(n));
+            printf("g(f(%d)) = %.0f\n", n, resultat);
+        } else {
+            // fog
+            resultat = f(g(n));
+            printf("f(g(%d)) = %.0f\n", n, resultat);
+        }
+    }
+    else
+    {
+          printf("Erreur: aucune option valide spécifiée\n");
+          printf("Instructions d'utilisation:\n");
+          printf("---------------------------\n");
+          printf("1. Calculer 2^n:        ./prog -f n\n");
+          printf("2. Calculer 2*n:        ./prog -g n\n");
+          printf("3. Calculer f(g(n)):    ./prog -g n -f\n");
+          printf("4. Calculer g(f(n)):    ./prog -f n -g\n\n");
+          printf("Exemples:\n");
+          printf("  ./prog -f 3      Calcule 2^3\n");
+          printf("  ./prog -g 3      Calcule 2*3\n");
+          printf("  ./prog -f 3 -g   Calcule g(f(3)) = 2*(2^3)\n");
+          printf("  ./prog -g 3 -f   Calcule f(g(3)) = 2^(2*3)\n");       
+        return 1;
+    }
+
+    return 0;
+}

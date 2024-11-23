@@ -1,0 +1,72 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+#include <semaphore.h>
+#include <unistd.h>
+
+#define MAX_THREADS 10
+#define ITERATIONS 3 
+
+typedef struct {
+    int thread_id;           // ID du thread
+    int total_threads;       // Nombre total de threads
+    sem_t* sem_current;      // Sémaphore pour le thread courant
+    sem_t* sem_next;        // Sémaphore pour le thread suivant
+} ThreadInfo;
+
+void* thread_function(void* arg) {
+    ThreadInfo* info = (ThreadInfo*)arg;
+    
+    for(int i = 0; i < ITERATIONS; i++)
+    {
+        sem_wait(info->sem_current);
+        printf("Thread %d s'exécute (iteration %d)\n", info->thread_id, i + 1);
+        usleep(100000); 
+        sem_post(info->sem_next);
+    }
+    
+    return NULL;
+}
+
+int main(int argc, char* argv[])
+{
+    if (argc != 2) {
+        printf("Usage: %s <nombre_de_threads>\n", argv[0]);
+        return 1;
+    }
+    int n_threads = atoi(argv[1]);
+    if (n_threads <= 0 || n_threads > MAX_THREADS)
+    {
+        printf("Le nombre de threads doit être entre 1 et %d\n", MAX_THREADS);
+        return 1;
+    }
+    pthread_t threads[MAX_THREADS];
+    ThreadInfo thread_infos[MAX_THREADS];
+    sem_t semaphores[MAX_THREADS];
+    
+    for(int i = 0; i < n_threads; i++)
+    {
+        sem_init(&semaphores[i], 0, 0);
+    }
+    sem_post(&semaphores[0]);
+    for(int i = 0; i < n_threads; i++)
+    {
+        thread_infos[i].thread_id = i + 1;
+        thread_infos[i].total_threads = n_threads;
+        thread_infos[i].sem_current = &semaphores[i];
+        thread_infos[i].sem_next = &semaphores[(i + 1) % n_threads];
+        
+        if (pthread_create(&threads[i], NULL, thread_function, &thread_infos[i]) != 0)
+        {
+            perror("Erreur lors de la création du thread");
+            return 1;
+        }
+    }
+    for(int i = 0; i < n_threads; i++)
+    {
+        pthread_join(threads[i], NULL);
+    }
+    printf("Tous les threads ont terminé leur exécution\n");
+    
+    return 0;
+}

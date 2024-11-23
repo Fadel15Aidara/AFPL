@@ -1,0 +1,97 @@
+#include <stdio.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <string.h>
+#include <stdlib.h>
+
+void copie(char* filSrc, char* filDst, int append)
+{
+    int fdSrc = open(filSrc, O_RDONLY);
+    if (fdSrc==-1)
+    {
+        perror("Erreur d'ouverture du fichier source");
+        return;
+    }
+    printf("Ouverture du fichier source %s avec succès\n", filSrc);
+    struct stat stFichierSrc;
+    int resultat = fstat(fdSrc, &stFichierSrc);
+    if (resultat == -1)
+    {
+        perror("Erreur de récupération des informations sur fichier source");
+        close(fdSrc);
+        return;
+    }
+    printf("Taille: %ld octets\n", stFichierSrc.st_size);
+    
+    int flags = O_WRONLY | O_CREAT;
+    if(append)
+    {
+        flags |= O_APPEND;
+    }
+    else
+    {
+        flags |= O_TRUNC;
+    }
+    
+    int fdDst=open(filDst, flags, stFichierSrc.st_mode);
+    if (fdDst==-1)
+    {
+        perror("Erreur d'ouverture du fichier destination");
+        close(fdSrc);
+        return;
+    }
+    printf("Ouverture du fichier destination %s avec succès\n", filDst);
+    char buffer[4096];  
+    ssize_t nbRead;
+    long nbTotal = 0;
+    while ((nbRead = read(fdSrc, buffer, sizeof(buffer))) > 0)
+    {
+        ssize_t nbWrit = write(fdDst, buffer, nbRead);
+        if (nbWrit != nbRead)
+        {
+            perror("Erreur d'écriture");
+            close(fdSrc);
+            close(fdDst);
+            return;
+        }
+        nbTotal += nbWrit;
+        printf("\rProgression: %.2f%%", (float)nbTotal * 100 / stFichierSrc.st_size);
+        fflush(stdout);
+    }
+    
+    if (nbRead==-1)
+    {
+        perror("Erreur de lecture");
+    }
+    
+    printf("\nCopie terminée pour %s\n", filSrc);
+    close(fdSrc);
+    close(fdDst);
+}
+
+void regroup(char* filDst, char* fil1, char* fil2) {
+    printf("Début du regroupement des fichiers...\n");
+    printf("Fichier destination: %s\n", filDst);
+    printf("Premier fichier source: %s\n", fil1);
+    printf("Second fichier source: %s\n", fil2);
+    
+    copie(fil1, filDst, 0);
+    copie(fil2, filDst, 1);
+    printf("Regroupement terminé avec succès!\n");
+}
+
+int main(int argc, char* argv[])
+{
+    if(argc != 4)
+    {
+        printf("Erreur: nombre d'arguments incorrect\n");
+        printf("Usage: %s fichier_destination fichier_source1 fichier_source2\n", argv[0]);
+        printf("Exemple: %s resultat.txt partie1.txt partie2.txt\n", argv[0]);
+        return 1;
+    }
+    
+    regroup(argv[1], argv[2], argv[3]);
+    return 0;
+}

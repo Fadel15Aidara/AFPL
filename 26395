@@ -1,0 +1,214 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <getopt.h>
+
+
+typedef struct {
+    int create;      // Option -c
+    int afficher;    // Option -a
+    int dimension;   // Option -d
+    int binaire;     // Option -b
+    int texte;       // Option -t
+    char *filename;  // Option -f
+} Options;
+
+
+void creerMatrice(int **matrice, int dimension)
+{
+    for(int i= 0; i<dimension; i++)
+    {
+        for(int j= 0; j<dimension; j++)
+        {
+            matrice[i][j] = rand() % 100;  
+        }
+    }
+}
+
+void sauvegarderBinaire(int **matrice, int dimension, const char *filename)
+{
+    FILE *file = fopen(filename, "wb");
+    if (file == NULL)
+    {
+        fprintf(stderr, "Erreur lors de l'ouverture du fichier %s\n", filename);
+        return;
+    }
+    fwrite(&dimension, sizeof(int), 1, file);
+    for(int i = 0; i<dimension; i++)
+    {
+        fwrite(matrice[i], sizeof(int), dimension, file);
+    }
+    
+    fclose(file);
+}
+void sauvegarderTexte(int **matrice, int dimension, const char *filename)
+{
+    FILE *file = fopen(filename, "w");
+    if (file == NULL)
+    {
+        fprintf(stderr, "Erreur lors de l'ouverture du fichier %s\n", filename);
+        return;
+    }
+    fprintf(file, "%d\n", dimension);
+    for(int i= 0; i <dimension; i++)
+    {
+        for(int j = 0; j < dimension; j++)
+        {
+            fprintf(file, "%d ", matrice[i][j]);
+        }
+        fprintf(file, "\n");
+    }
+    
+    fclose(file);
+}
+void lireBinaire(const char *filename)
+{
+    FILE *file=fopen(filename, "rb");
+    if (file==NULL)
+    {
+        fprintf(stderr, "Erreur lors de l'ouverture du fichier %s\n", filename);
+        return;
+    }
+    int dimension;
+    fread(&dimension, sizeof(int), 1, file);
+    int **matrice = malloc(dimension * sizeof(int*));
+    for(int i = 0; i <dimension; i++)
+    {
+        matrice[i] = malloc(dimension * sizeof(int));
+    }
+    for(int i = 0; i < dimension; i++)
+    {
+        fread(matrice[i], sizeof(int), dimension, file);
+    }
+    printf("Dimension: %d x %d\n", dimension, dimension);
+    for(int i = 0; i < dimension; i++)
+    {
+        for(int j = 0; j < dimension; j++)
+        {
+            printf("%3d ", matrice[i][j]);
+        }
+        printf("\n");
+    }
+    for(int i= 0; i < dimension; i++)
+    {
+        free(matrice[i]);
+    }
+    free(matrice);
+    fclose(file);
+}
+void lireTexte(const char *filename)
+{
+    FILE *file = fopen(filename, "r");
+    if (file==NULL)
+    {
+        fprintf(stderr, "Erreur lors de l'ouverture du fichier %s\n", filename);
+        return;
+    }
+
+    int dimension;
+    fscanf(file, "%d", &dimension);
+    
+    int **matrice = malloc(dimension * sizeof(int*));
+    for(int i = 0; i < dimension; i++) {
+        matrice[i] = malloc(dimension * sizeof(int));
+    }
+    for(int i = 0; i < dimension; i++)
+    {
+        for(int j = 0; j < dimension; j++)
+        {
+            fscanf(file, "%d", &matrice[i][j]);
+        }
+    }
+    printf("Dimension: %d x %d\n", dimension, dimension);
+    for(int i = 0; i < dimension; i++)
+    {
+        for(int j = 0; j < dimension; j++)
+        {
+            printf("%3d ", matrice[i][j]);
+        }
+        printf("\n");
+    }
+    for(int i = 0; i < dimension; i++)
+    {
+        free(matrice[i]);
+    }
+    free(matrice);
+    fclose(file);
+}
+
+int main(int argc, char *argv[])
+{
+    Options options = {0, 0, 0, 1, 0, NULL}; 
+    int opt;
+    while((opt=getopt(argc, argv, "cad:btf:"))!=-1)
+    {
+        switch(opt)
+        {
+            case 'c':
+                options.create = 1;
+                break;
+            case 'a':
+                options.afficher = 1;
+                break;
+            case 'd':
+                options.dimension = atoi(optarg);
+                break;
+            case 'b':
+                options.binaire = 1;
+                options.texte = 0;
+                break;
+            case 't':
+                options.texte = 1;
+                options.binaire = 0;
+                break;
+            case 'f':
+                options.filename = optarg;
+                break;
+            default:
+                fprintf(stderr, "Usage: %s [-c] [-a] [-d dimension] [-b|-t] [-f fichier]\n", argv[0]);
+                exit(1);
+        }
+    }
+
+    if (!options.filename || !options.dimension)
+    {
+        fprintf(stderr, "Le nom du fichier (-f) et la dimension (-d) sont obligatoires\n");
+        exit(1);
+    }
+    if (options.create)
+    {
+        srand(time(NULL));  
+        int **matrice = malloc(options.dimension * sizeof(int*));
+        for(int i = 0; i < options.dimension; i++)
+        {
+            matrice[i] = malloc(options.dimension * sizeof(int));
+        }
+        creerMatrice(matrice, options.dimension);
+        if (options.texte)
+        {
+            sauvegarderTexte(matrice, options.dimension, options.filename);
+        }
+        else
+        {
+            sauvegarderBinaire(matrice, options.dimension, options.filename);
+        }
+        for(int i = 0; i < options.dimension; i++)
+        {
+            free(matrice[i]);
+        }
+        free(matrice);
+    }
+    if(options.afficher)
+    {
+        if (options.texte)
+        {
+            lireTexte(options.filename);
+        }
+        else
+        {
+            lireBinaire(options.filename);
+        }
+    }
+    return 0;
+}
